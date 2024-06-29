@@ -1,4 +1,8 @@
-import { WorkMailClient, CreateUserCommand ,RegisterToWorkMailCommand } from "@aws-sdk/client-workmail";
+import {
+  WorkMailClient,
+  CreateUserCommand,
+  RegisterToWorkMailCommand,
+} from "@aws-sdk/client-workmail";
 import { fromIni } from "@aws-sdk/credential-providers";
 import imaps from "imap-simple";
 import { simpleParser } from "mailparser";
@@ -15,81 +19,101 @@ const workMailClient = new WorkMailClient({
 export const handler = async (event, context) => {
   const config = {
     imap: {
-      user: 'test@businessonbot.awsapps.com', // Replace with the user's email
-      password: 'testpassword123+',            // Replace with the user's password
-      host: 'imap.mail.us-east-1.awsapps.com', // Replace with the IMAP endpoint for your region
+      user: "test@businessonbot.awsapps.com", // Replace with the user's email
+      password: "testpassword123+", // Replace with the user's password
+      host: "imap.mail.us-east-1.awsapps.com", // Replace with the IMAP endpoint for your region
       port: 993,
       tls: true,
-      authTimeout: 3000
-    }
+      authTimeout: 3000,
+    },
   };
   console.log(config);
 
   try {
     const connection = await imaps.connect(config);
-    await connection.openBox('INBOX');
+    await connection.openBox("INBOX");
 
-    const searchCriteria = ['ALL'];
+    const searchCriteria = ["ALL"];
     const fetchOptions = {
-      bodies: ['HEADER', 'TEXT', ''],
+      bodies: ["HEADER", "TEXT", ""],
       struct: true,
-      markSeen: false
+      markSeen: false,
     };
 
     const messages = await connection.search(searchCriteria, fetchOptions);
-    const parsedEmails = await Promise.all(messages.map(async (message) => {
-      const parts = imaps.getParts(message.attributes.struct);
-      const textPart = parts.find(part => part.type === 'text' && part.subtype === 'plain');
-      const htmlPart = parts.find(part => part.type === 'text' && part.subtype === 'html');
+    const parsedEmails = await Promise.all(
+      messages.map(async (message) => {
+        const parts = imaps.getParts(message.attributes.struct);
+        const textPart = parts.find(
+          (part) => part.type === "text" && part.subtype === "plain"
+        );
+        const htmlPart = parts.find(
+          (part) => part.type === "text" && part.subtype === "html"
+        );
 
-      const fetchTextPart = textPart ? connection.getPartData(message, textPart) : Promise.resolve('');
-      const fetchHtmlPart = htmlPart ? connection.getPartData(message, htmlPart) : Promise.resolve('');
+        const fetchTextPart = textPart
+          ? connection.getPartData(message, textPart)
+          : Promise.resolve("");
+        const fetchHtmlPart = htmlPart
+          ? connection.getPartData(message, htmlPart)
+          : Promise.resolve("");
 
-      const [text, html] = await Promise.all([fetchTextPart, fetchHtmlPart]);
-      // console.log(message.parts);
+        const [text, html] = await Promise.all([fetchTextPart, fetchHtmlPart]);
+        console.log(message.parts);
 
-      return {
-        uid: message.attributes.uid,
-        subject: message.parts.find(part => part.which === 'HEADER').body.subject[0],
-        from: message.parts.find(part => part.which === 'HEADER').body.from[0],
-        to: message.parts.find(part => part.which === 'HEADER').body.to[0],
-        replyTo : message.parts.find(part => part.which === 'HEADER').body['reply-to'],
-        date: message.parts.find(part => part.which === 'HEADER').body.date[0],
-        text,
-        // html
-      };
-    }));
+        return {
+          uid: message.attributes.uid,
+          subject: message.parts.find((part) => part.which === "HEADER").body
+            .subject[0],
+          from: message.parts.find((part) => part.which === "HEADER").body
+            .from[0],
+          to: message.parts.find((part) => part.which === "HEADER").body.to[0],
+          replyTo: message.parts.find((part) => part.which === "HEADER").body[
+            "reply-to"
+          ],
+          messageId: message.parts.find((part) => part.which === "HEADER").body[
+            "message-id"
+          ],
+          references: message.parts.find((part) => part.which === "HEADER").body
+            .references,
 
-    parsedEmails.forEach(email => {
-      console.log('UID:', email.uid);
-      console.log('Subject:', email.subject);
-      console.log('From:', email.from);
-      console.log('To:', email.to);
-      if(email.replyTo){
-        console.log('Reply To:', email.replyTo);
+          date: message.parts.find((part) => part.which === "HEADER").body
+            .date[0],
+          text,
+          // html
+        };
+      })
+    );
+
+    parsedEmails.forEach((email) => {
+      console.log("UID:", email.uid);
+      console.log("Subject:", email.subject);
+      console.log("From:", email.from);
+      console.log("To:", email.to);
+      if (email.replyTo) {
+        console.log("Reply To:", email.replyTo);
       }
-      console.log('Date:', email.date);
-      console.log('Text:', email.text);
+      console.log("MessageID :", email.messageId);
+      if (email.references) {
+        console.log("References :", email.references);
+      }
+      console.log("Date:", email.date);
+      console.log("Text:", email.text);
       // if (email.html) {
       //   console.log('HTML:', email.html);
       // }
-      console.log('-------------------------------');
+      console.log("-------------------------------");
     });
 
     connection.end();
     return parsedEmails;
   } catch (err) {
-    console.error('Error connecting to IMAP:', err);
-    throw new Error('Failed to fetch emails');
+    console.error("Error connecting to IMAP:", err);
+    throw new Error("Failed to fetch emails");
   }
 };
 
 handler();
-
-
-
-
-
 
 // const client = new WorkMailClient({
 //   region: "us-east-1",
@@ -192,7 +216,6 @@ handler();
 //   console.error('Error connecting to IMAP:', err);
 // });
 
-
 // const user = {
 //   Name: "Testuser",
 //   DisplayName: "test",
@@ -211,6 +234,5 @@ handler();
 // }
 // const command = new RegisterToWorkMailCommand(input);
 // const response = await client.send(command);
-
 
 // console.log(response);
